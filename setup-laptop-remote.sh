@@ -11,7 +11,7 @@ echo "Home machine Tailscale IP: $HOME_TAILSCALE_IP"
 echo ""
 
 # ── Step 1: Install packages ──────────────────────────────────────
-echo "[1/6] Installing packages..."
+echo "[1/8] Installing packages..."
 sudo pacman -S --needed --noconfirm \
     tailscale openssh mosh tmux tigervnc \
     starship zoxide fzf bat ripgrep fd
@@ -22,13 +22,19 @@ if ! command -v ghostty &>/dev/null; then
 fi
 
 # ── Step 2: Enable Tailscale ──────────────────────────────────────
-echo "[2/6] Enabling Tailscale..."
+echo "[2/8] Enabling Tailscale..."
 sudo systemctl enable --now tailscaled
-echo "  → Run 'sudo tailscale up' to authenticate if not already connected."
-echo "  → Verify with: tailscale status"
+if ! tailscale status &>/dev/null; then
+    echo "  → Tailscale not connected. Authenticating..."
+    sudo tailscale up
+fi
+echo "  → Tailscale IP: $(tailscale ip -4 2>/dev/null || echo 'pending')"
 
 # ── Step 3: Generate SSH keypair ──────────────────────────────────
-echo "[3/6] Setting up SSH..."
+echo "[3/8] Setting up SSH..."
+mkdir -p "$HOME/.ssh"
+chmod 700 "$HOME/.ssh"
+
 if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
     ssh-keygen -t ed25519 -C "juansbiz@laptop" -f "$HOME/.ssh/id_ed25519" -N ""
     echo "  → Keypair generated."
@@ -36,19 +42,29 @@ else
     echo "  → SSH keypair already exists."
 fi
 
+# ── Step 4: Copy key to home machine ─────────────────────────────
+echo "[4/8] Copying SSH key to home machine..."
+echo "  → You'll be prompted for your home machine password (juansbiz user)."
+echo "  → This is a one-time step — after this, pubkey auth takes over."
 echo ""
-echo "  ╔══════════════════════════════════════════════════════════════╗"
-echo "  ║  ADD THIS PUBLIC KEY to home machine's authorized_keys:    ║"
-echo "  ╚══════════════════════════════════════════════════════════════╝"
-echo ""
-cat "$HOME/.ssh/id_ed25519.pub"
-echo ""
-echo "  On home machine: echo '<key>' >> ~/.ssh/authorized_keys"
-echo ""
+if ssh-copy-id -i "$HOME/.ssh/id_ed25519.pub" "juansbiz@$HOME_TAILSCALE_IP"; then
+    echo "  → Key copied successfully!"
 
-# ── Step 4: SSH config ────────────────────────────────────────────
-echo "[4/6] Writing SSH config..."
-mkdir -p "$HOME/.ssh"
+    # ── Step 5: Lock down home machine — disable password auth ────
+    echo "[5/8] Hardening home SSH — disabling password auth..."
+    ssh "juansbiz@$HOME_TAILSCALE_IP" \
+        "sudo sed -i 's/^PasswordAuthentication yes.*/PasswordAuthentication no/' /etc/ssh/sshd_config.d/99-hardened.conf && sudo systemctl reload sshd && echo '  → Password auth disabled. Pubkey only from now on.'"
+else
+    echo "  !! ssh-copy-id failed. Make sure:"
+    echo "     1. Tailscale is connected (tailscale status)"
+    echo "     2. Home machine is on (ping $HOME_TAILSCALE_IP)"
+    echo "     3. You know the juansbiz password"
+    echo "  Re-run this script after fixing."
+    exit 1
+fi
+
+# ── Step 6: SSH config ────────────────────────────────────────────
+echo "[6/8] Writing SSH config..."
 cat > "$HOME/.ssh/config" << SSHEOF
 # Home M1 Max — full remote development
 Host home
@@ -94,8 +110,8 @@ chmod 600 "$HOME/.ssh/config"
 mkdir -p "$HOME/.ssh/sockets"
 echo "  → SSH config written (hosts: 'home', 'home-lite')"
 
-# ── Step 5: Connection scripts ────────────────────────────────────
-echo "[5/6] Creating connection scripts..."
+# ── Step 7: Connection scripts ────────────────────────────────────
+echo "[7/8] Creating connection scripts..."
 mkdir -p "$HOME/.local/bin"
 
 # remote-code — SSH + tmux
@@ -178,27 +194,52 @@ chmod +x "$HOME/.local/bin/remote-disconnect"
 
 echo "  → Created: remote-code, remote-desktop, remote-disconnect"
 
-# ── Step 6: VS Code Remote SSH ────────────────────────────────────
-echo "[6/6] VS Code Remote SSH..."
+# ── Step 8: VS Code Remote SSH ────────────────────────────────────
+echo "[8/8] VS Code Remote SSH..."
 if command -v code &>/dev/null; then
     code --install-extension ms-vscode-remote.remote-ssh 2>/dev/null || true
-    echo "  → Extension installed. Use: code --remote ssh-remote+home /home/juansbiz/Desktop/CODE"
+    echo "  → Extension installed."
 else
     echo "  → VS Code not found. Install it, then run:"
     echo "    code --install-extension ms-vscode-remote.remote-ssh"
 fi
 
+# ── Hyprland host.conf reminder ───────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/laptop-host.conf" ]; then
+    mkdir -p "$HOME/.config/hypr"
+    cp "$SCRIPT_DIR/laptop-host.conf" "$HOME/.config/hypr/host.conf"
+    echo ""
+    echo "  → Copied laptop-host.conf → ~/.config/hypr/host.conf"
+
+    # Add source line to hyprland.conf if not already present
+    HYPR_CONF="$HOME/.config/hypr/hyprland.conf"
+    if [ -f "$HYPR_CONF" ] && ! grep -q 'source.*host\.conf' "$HYPR_CONF"; then
+        # Add after the last existing source line
+        sed -i '/^source = /a source = ~/.config/hypr/host.conf' "$HYPR_CONF"
+        echo "  → Added 'source = ~/.config/hypr/host.conf' to hyprland.conf"
+    fi
+fi
+
 echo ""
-echo "=== Setup Complete ==="
-echo ""
-echo "Quick reference:"
-echo "  remote-code              SSH + tmux (terminal coding)"
-echo "  remote-code --ports      SSH + tmux + port forwarding (dev servers)"
-echo "  remote-code --mosh       Mosh + tmux (unstable WiFi)"
-echo "  remote-desktop           VNC to Hyprland desktop"
-echo "  remote-disconnect        Close all connections"
-echo "  code --remote ssh-remote+home /home/juansbiz/Desktop/CODE"
-echo ""
-echo "NEXT STEP: Add your laptop's public key to the home machine:"
-echo "  ssh-copy-id -i ~/.ssh/id_ed25519.pub juansbiz@$HOME_TAILSCALE_IP"
-echo "  (or manually append to ~/.ssh/authorized_keys on home machine)"
+echo "╔══════════════════════════════════════════════════════════════════╗"
+echo "║                    SETUP COMPLETE                              ║"
+echo "╠══════════════════════════════════════════════════════════════════╣"
+echo "║                                                                ║"
+echo "║  Quick reference:                                              ║"
+echo "║                                                                ║"
+echo "║  remote-code              SSH + tmux (terminal coding)         ║"
+echo "║  remote-code --ports      + port forwarding (dev servers)      ║"
+echo "║  remote-code --mosh       Mosh (unstable WiFi)                 ║"
+echo "║  remote-desktop           VNC to Hyprland desktop              ║"
+echo "║  remote-disconnect        Close all connections                ║"
+echo "║                                                                ║"
+echo "║  VS Code:                                                     ║"
+echo "║  code --remote ssh-remote+home /home/juansbiz/Desktop/CODE    ║"
+echo "║                                                                ║"
+echo "║  VNC credentials:                                              ║"
+echo "║  Username: juansbiz    (you know the password)                 ║"
+echo "║                                                                ║"
+echo "║  Super+Escape = toggle passthrough (for remote desktop)        ║"
+echo "║                                                                ║"
+echo "╚══════════════════════════════════════════════════════════════════╝"
