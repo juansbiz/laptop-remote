@@ -9,7 +9,15 @@ echo "Connecting to Hyprland desktop at $HOME_IP:$VNC_PORT..."
 echo "Tip: Super+Escape toggles passthrough mode"
 echo ""
 
-remmina -c "VNC://juansbiz@${HOME_IP}:${VNC_PORT}?quality=9&scale=1&viewmode=1" &
+# Use TigerVNC with optimal compression and lower quality for speed
+# Window fits laptop screen without scrollbars
+vncviewer "$HOME_IP::$VNC_PORT" \
+    -geometry 2560x1600 \
+    -QualityLevel=2 \
+    -CompressLevel=9 \
+    -PreferredEncoding=ZRLE \
+    -Fullscreen=0 \
+    -Shared=1 2>/dev/null &
 
 disown
 echo "VNC viewer launched."
