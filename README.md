@@ -14,6 +14,24 @@ All traffic runs over Tailscale (WireGuard encrypted, NAT-traversing).
 
 ---
 
+## Connection Setup (Laptop can't reach Mac Studio?)
+
+If Tailscale isn't running on the laptop or SSH isn't connecting, run the lightweight connection script first:
+
+```bash
+git clone https://github.com/juansbiz/laptop-remote.git
+cd laptop-remote
+./setup-laptop-connect.sh
+```
+
+This installs Tailscale, connects to the tailnet, pre-trusts the Mac Studio host key, and tests SSH. Once that works, proceed to the full bootstrap below.
+
+The `keys/` directory contains Mac Studio's SSH public keys:
+- `keys/mac-studio.pub` — user key (`juansbiz@macstudio`)
+- `keys/mac-studio-host-ed25519.pub` — host key (pre-added to `known_hosts` by the script)
+
+---
+
 ## Quick Start (If SSH key is already on home machine)
 
 ```bash
@@ -401,5 +419,8 @@ Press `Super+Escape` — you're probably still in passthrough mode. Press it aga
 |------|-------------|
 | `setup-laptop-remote.sh` | One-shot bootstrap for laptop — run once, sets everything up |
 | `setup-dev-deps.sh` | Installs development dependencies for AxolopCRM (Node.js, Docker, pnpm) |
+| `setup-laptop-connect.sh` | Lightweight script — gets Tailscale up and SSH working |
 | `setup-mac-studio.sh` | Bootstrap script for Mac Studio (home machine) |
 | `laptop-host.conf` | Hyprland config for laptop (no blur/shadow, smaller gaps for Intel GPU) |
+| `keys/mac-studio.pub` | Mac Studio user public key (`juansbiz@macstudio`) |
+| `keys/mac-studio-host-ed25519.pub` | Mac Studio SSH host key (for `known_hosts`) |
