@@ -42,8 +42,9 @@ chmod +x setup-mac-studio.sh
 1. Verifies Tailscale is running
 2. Creates/verifies hardened SSH config at `/etc/ssh/sshd_config.d/99-hardened.conf` (Tailscale IP only, pubkey only)
 3. Sets up wayvnc with TLS + password auth, bound to Tailscale IP on port 5910
-4. Creates systemd user service for wayvnc
-5. Checks Hyprland passthrough submap and mosh
+4. Adds `tailscale0` interface to firewalld trusted zone (allows all Tailscale traffic through the firewall)
+5. Creates systemd user service for wayvnc
+6. Checks Hyprland passthrough submap and mosh
 
 ### Manual Mac Studio Setup (if script doesn't work)
 
@@ -259,7 +260,7 @@ sudo systemctl start tailscaled
 **On Mac Studio (home):**
 ```bash
 sudo systemctl enable tailscaled
-sudo systemctl start tailscale
+sudo systemctl start tailscaled
 ```
 
 ### 2. Verify Tailscale Connectivity
