@@ -14,6 +14,57 @@ All traffic runs over Tailscale (WireGuard encrypted, NAT-traversing).
 
 ---
 
+## Quick Start (If SSH key is already on home machine)
+
+```bash
+# Clone and run setup
+git clone https://github.com/juansbiz/laptop-remote.git
+cd laptop-remote
+chmod +x setup-laptop-remote.sh
+./setup-laptop-remote.sh
+```
+
+---
+
+## Mac Studio Setup (Home Machine)
+
+If you're setting up the Mac Studio for the first time or need to reconfigure:
+
+```bash
+# Clone this repo on Mac Studio
+git clone https://github.com/juansbiz/laptop-remote.git
+cd laptop-remote
+chmod +x setup-mac-studio.sh
+./setup-mac-studio.sh
+```
+
+**What the script does:**
+1. Enables SSH server
+2. Configures key-based authentication
+3. Checks/configures wayvnc for VNC remote desktop
+4. Configures firewall for VNC port 5910
+5. Sets up Redis (if installed)
+6. Verifies Tailscale is running
+
+### Manual Mac Studio Setup (if script doesn't work)
+
+```bash
+# 1. Enable SSH
+sudo systemsetup -f -setremotelogin on
+
+# 2. Add laptop's SSH key
+echo 'LAPTOP_PUBLIC_KEY' >> ~/.ssh/authorized_keys
+
+# 3. Start wayvnc (for VNC)
+wayvnc 0.0.0.0 5910 &
+
+# 4. Check Tailscale
+sudo tailscale up
+tailscale ip -4
+```
+
+---
+
 ## Step-by-step from the laptop
 
 ### 1. Install git (if not already)
@@ -58,6 +109,129 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ```bash
 yay -S ghostty
+```
+
+### 6. Install VS Code (for remote development)
+
+```bash
+# Install VS Code
+yay -S visual-studio-code-bin
+
+# Install Remote SSH extension
+code --install-extension ms-vscode-remote.remote-ssh
+```
+
+### 7. Install Development Dependencies (optional, for local AxolopCRM dev)
+
+```bash
+chmod +x setup-dev-deps.sh
+./setup-dev-deps.sh
+```
+
+---
+
+## ⚠️ Manual SSH Key Setup (If Away From Home)
+
+If you're not at home and can't run `ssh-copy-id`, follow these steps:
+
+### Step 1: Get your public key
+
+Your public key was generated during setup. Run:
+```bash
+cat ~/.ssh/id_ed25519.pub
+```
+
+Copy the entire output (starts with `ssh-ed25519`).
+
+### Step 2: Add to home machine (when you return)
+
+SSH into your Mac Studio and run:
+```bash
+echo "YOUR_PUBLIC_KEY_HERE" >> ~/.ssh/authorized_keys
+```
+
+Or use the Mac Studio directly to add the key.
+
+---
+
+## Development Dependencies (AxolopCRM)
+
+For developing AxolopCRM locally, install these dependencies:
+
+### Core Runtime
+
+```bash
+# Node.js 18+ and npm (required for AxolopCRM)
+sudo pacman -S --needed nodejs npm
+
+# pnpm (optional, faster than npm)
+sudo pacman -S --needed pnpm
+```
+
+### Docker (for backend services)
+
+```bash
+# Docker and Docker Compose
+sudo pacman -S --needed docker docker-compose
+
+# Enable and start Docker
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
+# Log out and back in for group changes to take effect
+```
+
+### Database Tools (optional)
+
+```bash
+# PostgreSQL client (for direct DB access)
+sudo pacman -S --needed postgresql
+```
+
+### Quick Install All Dev Deps
+
+```bash
+chmod +x setup-dev-deps.sh
+./setup-dev-deps.sh
+```
+
+---
+
+## AxolopCRM Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React 18, Vite, TailwindCSS, Framer Motion, Radix UI |
+| **Backend** | Node.js, Express |
+| **Database** | PostgreSQL (Supabase) |
+| **Cache** | Redis |
+| **Vector DB** | ChromaDB (AI features) |
+| **Email** | SendGrid, Resend |
+| **Auth** | JWT, Google OAuth |
+| **Payments** | Stripe |
+| **Telephony** | Twilio, Telnyx |
+| **Testing** | Jest, Playwright |
+| **Deployment** | Docker, Vercel, Railway |
+
+### AxolopCRM Quick Commands
+
+```bash
+# Install dependencies
+npm install
+
+# Start with Docker backend
+npm run docker:up        # Starts Backend + Redis in Docker (port 3002)
+npm run dev:vite         # Starts Frontend (port 3000)
+
+# Or start everything
+npm run dev
+
+# Access locally
+# Frontend: http://localhost:3000
+# Backend API: http://localhost:3002
+
+# Run tests
+npm run test:auth
+npm run verify:schema
 ```
 
 ---
@@ -106,14 +280,11 @@ When using `remote-code --ports` or `ssh home`:
 
 | Laptop localhost | Home service |
 |------------------|-------------|
-| `:3000` | Vite dev server (Axolop) |
-| `:3002` | Vite dev server |
-| `:3005` | Vite dev server |
-| `:3006` | Vite dev server (InboxEQ) |
+| `:3000` | Axolop CRM Frontend (Vite) |
+| `:3002` | Axolop CRM Backend (Express API) |
 | `:7100` | Henry OS |
 | `:18789` | OpenClaw gateway (Axolop) |
 | `:18790` | OpenClaw gateway (Henry) |
-| `:18791` | OpenClaw gateway (InboxEQ) |
 | `:8384` | Syncthing |
 
 ---
@@ -162,5 +333,7 @@ Press `Super+Escape` — you're probably still in passthrough mode. Press it aga
 
 | File | What it does |
 |------|-------------|
-| `setup-laptop-remote.sh` | One-shot bootstrap — run once, sets everything up |
+| `setup-laptop-remote.sh` | One-shot bootstrap for laptop — run once, sets everything up |
+| `setup-dev-deps.sh` | Installs development dependencies for AxolopCRM (Node.js, Docker, pnpm) |
+| `setup-mac-studio.sh` | Bootstrap script for Mac Studio (home machine) |
 | `laptop-host.conf` | Hyprland config for laptop (no blur/shadow, smaller gaps for Intel GPU) |
