@@ -244,6 +244,63 @@ npm run verify:schema
 
 ---
 
+## Verify & Connect
+
+After initial setup, follow these steps to verify everything works:
+
+### 1. Enable Tailscale on Boot (Both Machines)
+
+**On Macbook Air (laptop):**
+```bash
+sudo systemctl enable tailscaled
+sudo systemctl start tailscaled
+```
+
+**On Mac Studio (home):**
+```bash
+sudo systemctl enable tailscaled
+sudo systemctl start tailscale
+```
+
+### 2. Verify Tailscale Connectivity
+
+**Check both machines are connected:**
+```bash
+tailscale status
+```
+
+**Ping the home machine:**
+```bash
+ping -c 3 100.117.232.15
+```
+
+### 3. Test SSH Connection
+
+**From laptop to home:**
+```bash
+ssh home-lite "hostname"
+# OR
+ssh juansbiz@100.117.232.15 "hostname"
+```
+
+### 4. Run Full Setup Script
+
+```bash
+cd ~/laptop-remote
+chmod +x setup-laptop-remote.sh
+./setup-laptop-remote.sh
+```
+
+### 5. Test Remote Commands
+
+```bash
+remote-code --help
+remote-desktop --help
+remote-disconnect
+```
+
+---
+
 ## Daily usage
 
 ### Terminal coding session
