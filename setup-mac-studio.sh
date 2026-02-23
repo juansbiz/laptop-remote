@@ -17,7 +17,7 @@ echo "  Tailscale IP: $TAILSCALE_IP"
 echo ""
 
 # ── Step 1: Tailscale ────────────────────────────────────────────────
-echo "[1/5] Checking Tailscale..."
+echo "[1/6] Checking Tailscale..."
 
 if command -v tailscale &>/dev/null; then
     if systemctl is-active --quiet tailscaled 2>/dev/null; then
@@ -38,7 +38,7 @@ fi
 echo ""
 
 # ── Step 2: Hardened SSH config ──────────────────────────────────────
-echo "[2/5] Configuring SSH (Tailscale-only, key-based auth)..."
+echo "[2/6] Configuring SSH (Tailscale-only, key-based auth)..."
 
 sudo systemctl enable --now sshd 2>/dev/null || true
 
@@ -89,7 +89,7 @@ echo "  ✓ authorized_keys has $KEY_COUNT key(s)"
 echo ""
 
 # ── Step 3: wayvnc with TLS auth (Tailscale-only) ───────────────────
-echo "[3/5] Setting up wayvnc (TLS + auth, Tailscale-only on port $VNC_PORT)..."
+echo "[3/6] Setting up wayvnc (TLS + auth, Tailscale-only on port $VNC_PORT)..."
 
 if ! command -v wayvnc &>/dev/null; then
     echo "  ✗ wayvnc not installed — sudo dnf install wayvnc"
@@ -183,8 +183,25 @@ SVCEOF
 fi
 echo ""
 
-# ── Step 4: Hyprland keyboard passthrough ────────────────────────────
-echo "[4/5] Hyprland VNC passthrough..."
+# ── Step 4: Firewalld — trust tailscale0 ──────────────────────────────
+echo "[4/6] Firewalld: ensuring tailscale0 is in trusted zone..."
+
+if command -v firewall-cmd &>/dev/null; then
+    ZONE=$(sudo firewall-cmd --get-zone-of-interface=tailscale0 2>/dev/null)
+    if [ "$ZONE" != "trusted" ]; then
+        sudo firewall-cmd --zone=trusted --add-interface=tailscale0 --permanent
+        sudo firewall-cmd --reload
+        echo "  ✓ tailscale0 added to trusted zone"
+    else
+        echo "  ✓ tailscale0 already in trusted zone"
+    fi
+else
+    echo "  — firewalld not installed, skipping"
+fi
+echo ""
+
+# ── Step 5: Hyprland keyboard passthrough ────────────────────────────
+echo "[5/6] Hyprland VNC passthrough..."
 
 HYPR_CONF="$HOME/.config/hypr/hyprland.conf"
 if [ -f "$HYPR_CONF" ] && grep -q "wayvnc-passthrough" "$HYPR_CONF" 2>/dev/null; then
@@ -198,8 +215,8 @@ else
 fi
 echo ""
 
-# ── Step 5: Install mosh (optional, for flaky connections) ───────────
-echo "[5/5] Checking mosh..."
+# ── Step 6: Install mosh (optional, for flaky connections) ───────────
+echo "[6/6] Checking mosh..."
 
 if command -v mosh-server &>/dev/null; then
     echo "  ✓ mosh-server installed"
