@@ -1,0 +1,28 @@
+# TigerVNC Configuration for Mac Studio Remote Desktop
+# Optimized for 4K→2560x1600 scaling without scrollbars
+
+# Auto-scaling: 66% fits 4K perfectly on 2560x1600 laptop screen
+scalingFactor=66%
+
+# Quality: 8 (good quality, reasonable bandwidth)
+quality=8
+
+# Compression: 6 (balanced, not max - leaves room for responsiveness)
+compressLevel=6
+
+# Encoding: Tight (best for low-bandwidth Tailscale)
+encoding=Tight
+
+# Window settings
+fullscreen=false
+matchWindowSize=true
+desktopSize=2560x1600
+
+# Performance optimizations
+autoSelect=true
+shareDesktop=true
+viewOnly=false
+
+# Keyboard/Mouse settings
+sendClipboard=true
+acceptClipboard=true

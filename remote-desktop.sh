@@ -9,15 +9,10 @@ echo "Connecting to Hyprland desktop at $HOME_IP:$VNC_PORT..."
 echo "Tip: Super+Escape toggles passthrough mode"
 echo ""
 
-# Use TigerVNC with optimal compression and lower quality for speed
-# Window fits laptop screen without scrollbars
-vncviewer "$HOME_IP::$VNC_PORT" \
-    -geometry 2560x1600 \
-    -QualityLevel=2 \
-    -CompressLevel=9 \
-    -PreferredEncoding=ZRLE \
-    -Fullscreen=0 \
-    -Shared=1 2>/dev/null &
+# Use TigerVNC in fullscreen mode - displays entire 4K desktop
+# Config file: ~/.vnc/default.vncviewer handles quality/compression settings
+# Press F8 to open menu, then use zoom controls or press F to toggle fullscreen
+vncviewer -fullscreen "$HOME_IP::$VNC_PORT" 2>/dev/null &
 
 disown
 echo "VNC viewer launched."
