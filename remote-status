@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# remote-status — Check all remote connections
+
+echo "=== Tailscale Status ==="
+tailscale status | grep -E "100\.|juansbiz"
+
+echo ""
+echo "=== Connectivity ==="
+ping -c 1 100.117.232.15 >/dev/null 2>&1 && echo "✓ Mac Studio reachable" || echo "✗ Mac Studio unreachable"
+
+echo ""
+echo "=== SSH Connection ==="
+ssh -o ConnectTimeout=5 home-lite "echo '✓ SSH working'" 2>/dev/null || echo "✗ SSH failed"
+
+echo ""
+echo "=== Available Commands ==="
+echo "  remote-code              # SSH + tmux terminal"
+echo "  remote-code --ports      # + port forwarding"
+echo "  remote-code --mosh       # mosh (unstable WiFi)"
+echo "  remote-desktop           # VNC via Remmina"
+echo "  remote-disconnect        # Close all connections"
