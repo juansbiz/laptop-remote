@@ -37,19 +37,66 @@ ok "Tailscale is connected"
 # Show current status
 tailscale status
 
+# Verify Mac Studio is visible as a peer
+if ! tailscale status | grep -q "juansbiz-macstudio"; then
+    warn "Connected to Tailscale but Mac Studio not visible as a peer"
+    echo "  Your tailnet may not include juansbiz-macstudio."
+    echo "  Check: https://login.tailscale.com/admin/machines"
+    echo ""
+    echo "  Common causes:"
+    echo "    - Laptop joined a different tailnet than the Mac Studio"
+    echo "    - Mac Studio's Tailscale key expired or was removed"
+    echo "    - Auth didn't complete (re-run: sudo tailscale up)"
+    exit 1
+fi
+ok "Mac Studio visible on tailnet"
+
 # ── 4. Wait for Mac Studio to be reachable ────────────────────────────
-info "Pinging Mac Studio at $MAC_STUDIO_IP..."
-attempts=0
-max_attempts=15
-while ! ping -c 1 -W 2 "$MAC_STUDIO_IP" &>/dev/null; do
-    attempts=$((attempts + 1))
-    if [ "$attempts" -ge "$max_attempts" ]; then
-        fail "Mac Studio not reachable after $max_attempts attempts. Is it online?"
-    fi
-    printf '  waiting... (%d/%d)\n' "$attempts" "$max_attempts"
-    sleep 2
-done
-ok "Mac Studio is reachable"
+# Try tailscale ping first (works at Tailscale layer, shows DERP/direct path)
+info "Tailscale-pinging Mac Studio at $MAC_STUDIO_IP..."
+if tailscale ping --timeout=10s "$MAC_STUDIO_IP" 2>/dev/null; then
+    ok "Mac Studio reachable via Tailscale"
+else
+    warn "tailscale ping failed, trying ICMP ping..."
+    attempts=0
+    max_attempts=10
+    while ! ping -c 1 -W 2 "$MAC_STUDIO_IP" &>/dev/null; do
+        attempts=$((attempts + 1))
+        if [ "$attempts" -ge "$max_attempts" ]; then
+            # ── Self-diagnosis on failure ──
+            echo ""
+            warn "Mac Studio not reachable after all attempts. Diagnosing..."
+            echo ""
+            echo "  Laptop Tailscale state:"
+            SELF_IP=$(tailscale ip -4 2>/dev/null || echo "unknown")
+            BACKEND=$(tailscale status --json 2>/dev/null | grep -o '"BackendState":"[^"]*"' || echo "unknown")
+            echo "    Laptop IP: $SELF_IP"
+            echo "    Backend:   $BACKEND"
+            echo ""
+            echo "  Mac Studio peer status:"
+            PEER_LINE=$(tailscale status 2>/dev/null | grep "juansbiz-macstudio" || true)
+            if [ -n "$PEER_LINE" ]; then
+                echo "    $PEER_LINE"
+                echo "    (Peer exists but not responding to ping)"
+            else
+                echo "    NOT FOUND in peer list"
+            fi
+            echo ""
+            echo "  tailscale ping output:"
+            tailscale ping --timeout=5s --verbose "$MAC_STUDIO_IP" 2>&1 | sed 's/^/    /' || true
+            echo ""
+            echo "  Next steps:"
+            echo "    1. On Mac Studio: tailscale status (is it running?)"
+            echo "    2. On Mac Studio: tailscale ping $SELF_IP (can it reach you?)"
+            echo "    3. Check admin: https://login.tailscale.com/admin/machines"
+            echo "    4. Re-auth both: sudo tailscale up"
+            exit 1
+        fi
+        printf '  waiting... (%d/%d)\n' "$attempts" "$max_attempts"
+        sleep 2
+    done
+    ok "Mac Studio reachable via ICMP"
+fi
 
 # ── 5. Pre-add host key to known_hosts ────────────────────────────────
 if [ ! -f "$HOST_KEY_FILE" ]; then
