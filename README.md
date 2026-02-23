@@ -39,28 +39,32 @@ chmod +x setup-mac-studio.sh
 ```
 
 **What the script does:**
-1. Enables SSH server
-2. Configures key-based authentication
-3. Checks/configures wayvnc for VNC remote desktop
-4. Configures firewall for VNC port 5910
-5. Sets up Redis (if installed)
-6. Verifies Tailscale is running
+1. Verifies Tailscale is running
+2. Creates/verifies hardened SSH config at `/etc/ssh/sshd_config.d/99-hardened.conf` (Tailscale IP only, pubkey only)
+3. Sets up wayvnc with TLS + password auth, bound to Tailscale IP on port 5910
+4. Creates systemd user service for wayvnc
+5. Checks Hyprland passthrough submap and mosh
 
 ### Manual Mac Studio Setup (if script doesn't work)
 
 ```bash
-# 1. Enable SSH
-sudo systemsetup -f -setremotelogin on
+# 1. Add laptop's SSH key
+echo 'ssh-ed25519 AAAA... user@host' >> ~/.ssh/authorized_keys
 
-# 2. Add laptop's SSH key
-echo 'LAPTOP_PUBLIC_KEY' >> ~/.ssh/authorized_keys
+# 2. Ensure password auth is disabled
+sudo grep PasswordAuthentication /etc/ssh/sshd_config.d/99-hardened.conf
+# Should show: PasswordAuthentication no
 
-# 3. Start wayvnc (for VNC)
-wayvnc 0.0.0.0 5910 &
+# 3. Check sshd is listening on Tailscale only
+sudo grep ListenAddress /etc/ssh/sshd_config.d/99-hardened.conf
+# Should show: ListenAddress 100.117.232.15 and ListenAddress 127.0.0.1
 
-# 4. Check Tailscale
-sudo tailscale up
-tailscale ip -4
+# 4. Check wayvnc is running
+systemctl --user status wayvnc
+# Should be active on 100.117.232.15:5910 with TLS + auth
+
+# 5. Check Tailscale
+tailscale status
 ```
 
 ---
@@ -130,27 +134,31 @@ chmod +x setup-dev-deps.sh
 
 ---
 
-## ⚠️ Manual SSH Key Setup (If Away From Home)
+## Laptop Setup (from the laptop)
 
-If you're not at home and can't run `ssh-copy-id`, follow these steps:
+### 1. Connect to Tailscale
 
-### Step 1: Get your public key
-
-Your public key was generated during setup. Run:
 ```bash
-cat ~/.ssh/id_ed25519.pub
+sudo tailscale up
+tailscale status          # Verify you can see juansbiz-macstudio
 ```
 
-Copy the entire output (starts with `ssh-ed25519`).
+### 2. Test SSH connection
 
-### Step 2: Add to home machine (when you return)
-
-SSH into your Mac Studio and run:
 ```bash
-echo "YOUR_PUBLIC_KEY_HERE" >> ~/.ssh/authorized_keys
+ssh juansbiz@100.117.232.15    # Should connect with pubkey, no password prompt
 ```
 
-Or use the Mac Studio directly to add the key.
+### 3. Run the laptop setup script
+
+```bash
+git clone https://github.com/juansbiz/laptop-remote.git
+cd laptop-remote
+chmod +x setup-laptop-remote.sh
+./setup-laptop-remote.sh
+```
+
+> **Note:** The laptop's SSH key (`rami@laptop`) is already authorized on the home machine. No `ssh-copy-id` needed.
 
 ---
 
